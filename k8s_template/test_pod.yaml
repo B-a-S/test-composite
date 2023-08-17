@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${K8s_SUB_DOMAIN}
+spec:
+  selector:
+    name: ${K8s_NAMESPACE}
+  clusterIP: None
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ${K8s_POD_NAME_1}
+  labels:
+    name: ${K8s_NAMESPACE}
+spec:
+  hostname: ${K8s_POD_NAME_1}
+  subdomain: ${K8s_SUB_DOMAIN}
+  nodeSelector:
+    kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: ${K8s_POD1_HOST}
+  securityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+  volumes:
+    - name: git
+      hostPath:
+        path: ${K8s_WORKDIRonHOST}
+        type: Directory
+    - name: hpc
+      nfs:
+         server: rdmzlabfs01.rdmz.labs.mlnx
+         path: "/vol/hpc/home/inst/local/x86_64"
+    - name: hpc-noarch
+      hostPath:
+#      nfs:
+#        server: rdmzlabfs01.rdmz.labs.mlnx
+#        path: "/vol/hpc/home/inst/local/noarch"
+#        type: Directory
+         path: /GIT/hpc/noarch
+         type: Directory
+
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 2G
+      name: shm
+    - name: hugepage
+      emptyDir:
+        medium: HugePages-2Mi
+  dnsPolicy: "None"
+  dnsConfig:
+    nameservers:
+      - ${K8s_DNS_IP}
+    searches:
+      - ${K8s_SUB_DOMAIN}.${K8s_NAMESPACE}.svc.cluster.local
+  containers:
+  - name: ${K8s_POD_NAME_1}
+    image: ${K8s_IMG_1}
+    securityContext:
+        capabilities:
+            add: [ "IPC_LOCK","SYS_NICE","SYS_ADMIN" ]
+        allowPrivilegeEscalation: true
+    resources:
+      requests:
+        memory: 4000Mi
+        hugepages-2Mi: 2Gi
+
+      limits:
+        hugepages-2Mi: 2Gi
+        memory: 8000Mi
+    volumeMounts:
+      - name: git
+        mountPath: "/GIT"
+        readOnly: false
+      - name: hpc
+        mountPath: "/hpc/local"
+        readOnly: true
+      - name: hpc-noarch
+        mountPath: "/hpc/noarch"
+        readOnly: true
+      - name: shm
+        mountPath: "/dev/shm"
+      - name: hugepage
+        mountPath: /hugepages-2Mi
+    command:
+      - sh
+      - -c
+      - |
+        sudo /usr/local/sbin/ssh_sudo;
+        ls -l /dev/infinODiband /sys/class/net;
+        sleep 1000000

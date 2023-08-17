@@ -1,0 +1,39 @@
+name: 'Deploying K8s'
+inputs:
+  file:
+    description: 'K8s template file'
+    required: false
+    default: './k8s_template/default.yaml'
+  vars:
+    description: 'Environment vars'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Show vars
+      run: echo ${{ inputs.vars }}
+      shell: bash
+
+    - name: Passing vars
+      run: |
+        IFS=$'\n'
+        for line in ${{ inputs.vars }}; do
+          echo "$line" >> $GITHUB_ENV
+        done
+        echo "K8s_file=${{ inputs.file }}" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Deploy infrastructure
+      shell: bash
+      run: |
+        pwd
+        envsubst < ${K8s_file} | kubectl apply -f -
+        env > /actions-runner/env
+        realpath $0
+
+
+
